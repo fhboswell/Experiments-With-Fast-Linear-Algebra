@@ -64,10 +64,10 @@ void blasMM(double* A, double* B, double* C,
     int ldb=N;
     int ldc=N;
     double alpha=1.0;
-    double beta=0.0;
+    double beta=1.0;
     
-    dgemm_( "N", "n", &nn, &nn, &nn,&alpha, B, &lda,
-        A,&ldb, &beta, C, &ldc );
+    dgemm_( "N", "N", &nn, &nn, &nn,&alpha, B, &lda,
+           A,&ldb, &beta, C, &ldc );
 }
 
 // =================================================================================================
@@ -81,7 +81,7 @@ double get_time() //https://stackoverflow.com/questions/2349776/how-can-i-benchm
 }
 void proof(){
     
-    int N = 2;
+    int N = 4;
     
     double *MAT1 = (double *)malloc(N * N * sizeof(double));
     double *MAT2 = (double *)malloc(N * N * sizeof(double));
@@ -167,7 +167,7 @@ int main(){
     proof();
     
     printf("\n");
-    
+    /*
     double bench = 0;
     double start =  0;
     
@@ -277,7 +277,7 @@ int main(){
         free(MAT4);
     }
     
-    
+    */
    
 
 }
