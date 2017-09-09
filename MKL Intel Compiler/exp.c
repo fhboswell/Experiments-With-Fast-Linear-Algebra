@@ -1,5 +1,7 @@
 /* C source code is found in dgemm_example.c */
 // compiled with icc gemm.c -Wl,-rpath,/opt/intel/compilers_and_libraries_2017.4.181/mac/mkl/lib  -Wl,-rpath,/opt/intel/compilers_and_libraries_2017.4.181/mac/compiler/lib -lmkl_intel_lp64 -lmkl_intel_thread -lmkl_core -qopenmp -mkl -liomp5
+//icc exp.c -Wl,-rpath,/opt/intel/compilers_and_libraries_2017.4.181/mac/mkl/lib  -Wl,-rpath,/opt/intel/compilers_and_libraries_2017.4.181/mac/compiler/lib -lmkl_intel_lp64 -lmkl_intel_thread -lmkl_core -qopenmp -mkl -liomp5 -parallel
+Henrys-MacBook-Pro:desktop henryboswell$ ./a.out
 
 //source http://www.mscs.dal.ca/cluster/manuals/intel-mkl/examples/vmlc/source/
 #define min(x,y) (((x) < (y)) ? (x) : (y))
@@ -7,9 +9,9 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include "mkl.h"
+#include <math.h>
 
-
-#define VEC_LEN 11
+#define VEC_LEN 100000
 
 
 
@@ -20,19 +22,50 @@
 
 int main()
 {
+    
+    omp_set_num_threads(1);
    float fA[VEC_LEN],fB1[VEC_LEN],fB2[VEC_LEN];
+    double s_initial, s_elapsed;
 
-  int i=0,vec_len=VEC_LEN;
-  double CurRMS,MaxRMS=0.0;
+    int i=0,vec_len=VEC_LEN;
+    double CurRMS,MaxRMS=0.0;
 
-  for(i=0;i<vec_len;i++) {
-    fA[i]=(float)(__SEXP_BEG+((__SEXP_END-__SEXP_BEG)*i)/vec_len);
-    fB1[i]=0.0;
-    fB2[i]=(float)exp(fA[i]);
-  }
+    for(i=0;i<vec_len;i++) {
+        fA[i]= rand() % 20;
+        fB1[i]=0.0;
+        
+    }
+    
+    
+    
+    vmlSetMode( VML_EP );
+ 
+    
+    s_initial = dsecnd();
+    
+    vsExp(vec_len,fA,fB1);
+    
+    s_elapsed = (dsecnd() - s_initial);
+    printf("%.5f millis vec \n",(s_elapsed * 1000));
+    
+    
+  
+    
+    s_initial = dsecnd();
+    
+    for(i=0;i<vec_len;i++) {
+        
+        fB2[i]=(float)exp(fA[i]);
+        
+    }
+    
+    s_elapsed = (dsecnd() - s_initial);
+    printf("%.5f millis\n",(s_elapsed * 1000));
 
-  vsExp(vec_len,fA,fB1);
-
+    
+    
+    /*
+    
   printf("vsExp test/example program\n\n");
   printf("           Argument                     vsExp                      Expf\n");
   printf("===============================================================================\n");
@@ -43,6 +76,8 @@ int main()
   }
   printf("\n");
   printf("Maximum relative error: %.2f\n",MaxRMS);
+     */
+    
 
   return 0;
 
