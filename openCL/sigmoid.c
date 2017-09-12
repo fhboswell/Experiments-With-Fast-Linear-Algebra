@@ -15,6 +15,7 @@
 #include <sys/time.h>
 #include <sys/resource.h>
 //gcc clexp.c  -framework OpenCL
+//gcc clexp.c -O3 -framework OpenCL
 ////////////////////////////////////////////////////////////////////////////////
 
 // Use a static data size for simplicity
@@ -230,7 +231,7 @@ int main(int argc, char** argv)
     clFinish(commands);
     
     double bench = (get_time() - start);
-      printf("Time = %f \n", bench*1000);
+      printf("Time = vector gpu = %f \n", bench*1000);
 
     // Read back the results from the device to verify the output
     //
@@ -259,6 +260,30 @@ int main(int argc, char** argv)
      */
      printf("vale %f, %f, \n", results[1], data[1]);
     
+    
+    i = 0;
+    count = DATA_SIZE;
+    for(i = 0; i < count; i++)
+        data[i] = rand() / (float)RAND_MAX;
+    
+    data[0] = 0;
+    data[1] = 2;
+    
+    
+    
+     start =get_time();
+    
+    
+   
+    for(i = 0; i < count; i++)
+        results[i] = 1 / (1 + exp(-data[i]));
+    
+        
+        
+     bench = (get_time() - start);
+    printf("Time for loop cpu = %f \n", bench*1000);
+    printf("vale %f, %f, \n", results[1], data[1]);
+
     // Shutdown and cleanup
     //
     clReleaseMemObject(input);
