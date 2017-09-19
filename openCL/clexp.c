@@ -76,7 +76,7 @@ int main(int argc, char** argv)
     unsigned int count = DATA_SIZE;
     for(i = 0; i < count; i++)
         data[i] = rand() / (float)RAND_MAX;
-    data[1]
+    
     
     // Connect to a compute device
     

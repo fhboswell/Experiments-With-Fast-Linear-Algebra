@@ -1,6 +1,6 @@
 /* C source code is found in dgemm_example.c */
 // compiled with icc gemm.c -Wl,-rpath,/opt/intel/compilers_and_libraries_2017.4.181/mac/mkl/lib  -Wl,-rpath,/opt/intel/compilers_and_libraries_2017.4.181/mac/compiler/lib -lmkl_intel_lp64 -lmkl_intel_thread -lmkl_core -qopenmp -mkl -liomp5
-//icc exp.c -Wl,-rpath,/opt/intel/compilers_and_libraries_2017.4.181/mac/mkl/lib  -Wl,-rpath,/opt/intel/compilers_and_libraries_2017.4.181/mac/compiler/lib -lmkl_intel_lp64 -lmkl_intel_thread -lmkl_core -qopenmp -mkl -liomp5 -parallel
+//icc expaltime.c -Wl,-rpath,/opt/intel/compilers_and_libraries_2017.4.181/mac/mkl/lib  -Wl,-rpath,/opt/intel/compilers_and_libraries_2017.4.181/mac/compiler/lib -lmkl_intel_lp64 -lmkl_intel_thread -lmkl_core -qopenmp -mkl -liomp5 -parallel
 //Henrys-MacBook-Pro:desktop henryboswell$ ./a.out
 
 //source http://www.mscs.dal.ca/cluster/manuals/intel-mkl/examples/vmlc/source/
@@ -54,15 +54,20 @@ int main()
     vsExp(vec_len,fA,fB1);
     
     double bench = (get_time() - start);
-    printf("Time = %f \n", bench);
+    printf("Time = %f \n", bench * 1000);
     
     
     
     
   
-     start =get_time();
     
-   
+    
+    for(i=0;i<vec_len;i++) {
+        fA[i]= rand() % 20;
+        fB1[i]=0.0;
+        
+    }
+   start =get_time();
     
     for(i=0;i<vec_len;i++) {
         
@@ -71,7 +76,7 @@ int main()
     }
     
      bench = (get_time() - start);
-    printf("Time = %f \n", bench);
+    printf("Time = %f \n", bench*1000);
 
     
     

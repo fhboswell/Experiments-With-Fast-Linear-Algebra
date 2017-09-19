@@ -168,6 +168,7 @@ int main(int argc, char** argv)
         printf("Error: Failed to create compute kernel!\n");
         exit(1);
     }
+    double start =get_time();
     
     // Create the input and output arrays in device memory for our calculation
     //
@@ -212,8 +213,7 @@ int main(int argc, char** argv)
     
     
     
-    double start =get_time();
-   
+    
     
     // Execute the kernel over the entire range of our 1d input data set
     // using the maximum number of work group items for this device

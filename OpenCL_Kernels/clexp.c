@@ -67,6 +67,7 @@ int main(int argc, char** argv)
     cl_command_queue commands;          // compute command queue
     cl_program program;                 // compute program
     cl_kernel kernel;                   // compute kernel
+    cl_kernel kernel2;
     
     cl_mem input;                       // device memory used for the input array
     cl_mem output;                      // device memory used for the output array
@@ -80,6 +81,8 @@ int main(int argc, char** argv)
     unsigned int count = DATA_SIZE;
     for(i = 0; i < count; i++)
         data[i] = rand() / (float)RAND_MAX;
+    
+    
     
     
     char* value;
@@ -144,7 +147,7 @@ int main(int argc, char** argv)
     //err = clBuildProgram(program, 1, &device_id, NULL, NULL, NULL);
     
     
-     double start =get_time();
+    
     program = clCreateProgramWithBinary(context, 1, &device_id, (const size_t *)&binary_size,
                                         (const unsigned char **)&binary_buf, &binary_status, &err);
     
@@ -153,7 +156,6 @@ int main(int argc, char** argv)
     
     err = clBuildProgram( program, 1, &device_id, NULL, NULL, NULL );
     
-   
 
     //0=check_status("clBuildProgram", err);
     
@@ -165,12 +167,14 @@ int main(int argc, char** argv)
     // Create the compute kernel in the program we wish to run
     //
     kernel = clCreateKernel(program, "square", &err);
+    //kernel2 = clCreateKernel(program, "square", &err);
     if (!kernel || err != CL_SUCCESS)
     {
         printf("Error: Failed to create compute kernel!\n");
         exit(1);
     }
     
+double start =get_time();
     // Create the input and output arrays in device memory for our calculation
     //
     input = clCreateBuffer(context,  CL_MEM_READ_ONLY,  sizeof(float) * count, NULL, NULL);
@@ -261,6 +265,24 @@ int main(int argc, char** argv)
      printf("Computed '%d/%d' correct values!\n", correct, count);
      */
      printf("vale %f, %f,  %f\n", results[1], data[1], exp(data[1]));
+    
+    printf("here");
+    
+    //unsigned int count = DATA_SIZE;
+    for(i = 0; i < count; i++)
+        data[i] = rand() / (float)RAND_MAX;
+
+    start =get_time();
+    
+    
+    for(i=0;i<count;i++) {
+        
+        results[i]=(float)exp(data[i]);
+        
+    }
+    
+    bench = (get_time() - start);
+    printf("Time = %f \n", bench*1000);
     
     // Shutdown and cleanup
     //
