@@ -78,8 +78,8 @@ int main(int argc, char** argv)
     for(i = 0; i < count; i++)
         data[i] = rand() / (float)RAND_MAX;
     
-    data[0] = 0;
-    data[1] = 2;
+    data[0] = 7;
+    data[1] = 10;
     
     // Connect to a compute device
     
@@ -266,9 +266,9 @@ int main(int argc, char** argv)
     for(i = 0; i < count; i++)
         data[i] = rand() / (float)RAND_MAX;
     
-    data[0] = 0;
-    data[1] = 2;
     
+    data[0] = 7;
+    data[1] = 10;
     
     
      start =get_time();
@@ -276,7 +276,7 @@ int main(int argc, char** argv)
     
    
     for(i = 0; i < count; i++)
-        results[i] = 1 / (1 + exp(-data[i]));
+        results[i] = 1.0 / (1 + exp(-data[i]));
     
         
         
@@ -284,6 +284,11 @@ int main(int argc, char** argv)
     printf("Time for loop cpu = %f \n", bench*1000);
     printf("vale %f, %f, \n", results[1], data[1]);
 
+    
+    long double t =  exp(-10);
+    long double h = 1.0/t;
+    printf("vale %Lg \n", t);
+    
     // Shutdown and cleanup
     //
     clReleaseMemObject(input);

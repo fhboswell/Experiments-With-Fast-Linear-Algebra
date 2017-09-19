@@ -15,43 +15,33 @@
 #include <sys/time.h>
 #include <sys/resource.h>
 //gcc clexp.c  -framework OpenCL
-//gcc clexp.c -O3 -framework OpenCL
 ////////////////////////////////////////////////////////////////////////////////
 
-
+// Use a static data size for simplicity
+//
+#define DATA_SIZE (204800)
 
 ////////////////////////////////////////////////////////////////////////////////
 
 // Simple compute kernel which computes the square of an input array
 //
-const char *KernelSource1 = "\n" \
+const char *KernelSource = "\n" \
 "__kernel void square(                                                       \n" \
-"   __global double* input,                                              \n" \
-"   __global double* output,                                             \n" \
-"   const unsigned int count, const int M, const int N)                                           \n" \
+"   __global float* input,                                              \n" \
+"   __global float* output,                                             \n" \
+"   const unsigned int count)                                           \n" \
 "{                                                                      \n" \
 "   int i = get_global_id(0);                                           \n" \
 "   if(i < count)                                                       \n" \
-"       output[i] = input[i] + M + N;                                \n" \
+"       output[i] = native_exp(input[i]);                                \n" \
 "}                                                                      \n" \
 "\n";
 
-const char *KernelSource2 = "\n" \
-"__kernel void square(                                                       \n" \
-"   __global double* input,                                              \n" \
-"   __global double* input2,                                                \n" \
-"   __global double* output,                                             \n" \
-"   const unsigned int count, const int M, const int N)                                            \n" \
-"{                                                                      \n" \
-"   int i = get_global_id(0);                                           \n" \
-"   double acc = 0.0;                                                   \n" \
-"   for(int j = 0; j < N; j++){                                           \n" \
-"       acc += input[M * j + i] * input2[j];                        \n" \
-"   }                                                               \n" \
-"   output[i] = acc;                                                \n" \
-"}                                                                      \n" \
-"\n";
 ////////////////////////////////////////////////////////////////////////////////
+
+#define MEM_SIZE (32)
+#define MAX_BINARY_SIZE (0x100000)
+
 
 double get_time() //https://stackoverflow.com/questions/2349776/how-can-i-benchmark-c-code-easily
 {
@@ -60,38 +50,13 @@ double get_time() //https://stackoverflow.com/questions/2349776/how-can-i-benchm
     gettimeofday(&t, &tzp);
     return t.tv_sec + t.tv_usec*1e-6;
 }
-int dotmv(double * data, double * data2, int M, int N, double * results, int DATA_SIZE);
+
 int main(int argc, char** argv)
 {
-    // results returned from device
-    unsigned int M = 256;           //height  vector legnth
-    unsigned int N = 1024;          //width
-    unsigned int count = 256;
+    int err;                            // error code returned from api calls
     
-    
-    double *X = (double *)calloc(M * N, sizeof(double));
-    double *Y = (double *)calloc(N * 1, sizeof(double));
-    double *results = (double *)calloc(N * 1, sizeof(double));
-    
-    *(X) = 1.0;
-    *(X + 1) = 2.0;
-    *(X + 256 ) = 3.0;
-    *(X + 257) = 4.0;
-    
-    *(Y) = 1.0;
-    *(Y + 1) = 2.0;
-    *(Y + 2) = 0;
-    *(Y + 3) = 0;
-    dotmv(X, Y, M, N, results,M);
-    printf("vale  %f\n", results[1]);
-
-}
-
-int dotmv(double * data, double * data2, int M, int N, double * results, int DATA_SIZE){
-    int err;
-    int i = 0;// error code returned from api calls
-    
-    // results returned from device
+    float data[DATA_SIZE];              // original data set given to device
+    float results[DATA_SIZE];           // results returned from device
     unsigned int correct;               // number of correct results returned
     
     size_t global;                      // global domain size for our calculation
@@ -104,26 +69,25 @@ int dotmv(double * data, double * data2, int M, int N, double * results, int DAT
     cl_kernel kernel;                   // compute kernel
     
     cl_mem input;                       // device memory used for the input array
-    cl_mem input2;
     cl_mem output;                      // device memory used for the output array
     
     
     cl_uint deviceCount;
     cl_device_id* devices;
-    
-    
-    
+    // Fill our data set with random float values
+    //
+    int i = 0;
     unsigned int count = DATA_SIZE;
+    for(i = 0; i < count; i++)
+        data[i] = rand() / (float)RAND_MAX;
+    
+    
     char* value;
     size_t valueSize;
     clGetDeviceIDs(NULL, CL_DEVICE_TYPE_ALL, 0, NULL, &deviceCount);
     devices = (cl_device_id*) malloc(sizeof(cl_device_id) * deviceCount);
     clGetDeviceIDs(NULL, CL_DEVICE_TYPE_ALL, deviceCount, devices, NULL);
-    
-    //clGetDeviceInfo(devices[2], CL_DEVICE_NAME, 0, NULL, &valueSize);
-    //value = (char*) malloc(valueSize);
-    //clGetDeviceInfo(devices[2], CL_DEVICE_NAME, valueSize, value, NULL);
-    //printf("%d. Device: %s\n", 2+1, value);
+
     device_id = devices[2];
     
     
@@ -131,8 +95,7 @@ int dotmv(double * data, double * data2, int M, int N, double * results, int DAT
     commands = clCreateCommandQueue(context, device_id, 0, NULL);
     cl_event event = NULL;
     
-    
-    
+
     
     
     if (!commands)
@@ -143,27 +106,61 @@ int dotmv(double * data, double * data2, int M, int N, double * results, int DAT
     
     // Create the compute program from the source buffer
     //
-    program = clCreateProgramWithSource(context, 1, (const char **) & KernelSource2, NULL, &err);
-    if (!program)
-    {
-        printf("Error: Failed to create compute program!\n");
-        return EXIT_FAILURE;
-    }
     
-    // Build the program executable
-    //
     
-    err = clBuildProgram(program, 0, NULL, NULL, NULL, NULL);
-    if (err != CL_SUCCESS)
-    {
-        size_t len;
-        char buffer[2048];
+   
+    float mem[MEM_SIZE];
+    
+    FILE *fp;
+    char fileName[] = "./kernel.bc";
+    size_t binary_size;
+    char *binary_buf;
+    cl_int binary_status;
+    //cl_int i;
+    
+    /* Load kernel binary */
+    fp = fopen(fileName, "r");
+    if (!fp) {
         
-        printf("Error: Failed to build program executable!\n");
-        clGetProgramBuildInfo(program, device_id, CL_PROGRAM_BUILD_LOG, sizeof(buffer), buffer, &len);
-        printf("%s\n", buffer);
-        exit(1);
+        
     }
+    binary_buf = (char *)malloc(MAX_BINARY_SIZE);
+    binary_size = fread(binary_buf, 1, MAX_BINARY_SIZE, fp);
+    fclose(fp);
+    
+    
+    //char bitcode_path[100] = "kernel.bc\0";
+    
+    //size_t len = 1;
+    //program = clCreateProgramWithBinary(context, 1, &device_id, &len,
+    //                                    (const unsigned char**)&bitcode_path, NULL, &err);
+    //check_status("clCreateProgramWithBinary", err);
+    
+    // The above tells OpenCL how to locate the intermediate bitcode, but we
+    // still must build the program to produce executable bits for our
+    // *specific* device.  This transforms gpu32 bitcode into actual executable
+    // bits for an AMD or Intel compute device (for example).
+    
+    //err = clBuildProgram(program, 1, &device_id, NULL, NULL, NULL);
+    
+    
+     double start =get_time();
+    program = clCreateProgramWithBinary(context, 1, &device_id, (const size_t *)&binary_size,
+                                        (const unsigned char **)&binary_buf, &binary_status, &err);
+    
+    fprintf(stdout, "clCreateProgramWithBinary err: %d\n", err);
+    fprintf(stdout, "binary_status: %d\n", binary_status);
+    
+    err = clBuildProgram( program, 1, &device_id, NULL, NULL, NULL );
+    
+   
+
+    //0=check_status("clBuildProgram", err);
+    
+    // And that's it -- we have a fully-compiled program created from the
+    // bitcode.  Let's ask OpenCL for the test kernel.
+    
+    
     
     // Create the compute kernel in the program we wish to run
     //
@@ -176,9 +173,8 @@ int dotmv(double * data, double * data2, int M, int N, double * results, int DAT
     
     // Create the input and output arrays in device memory for our calculation
     //
-    input = clCreateBuffer(context,  CL_MEM_READ_ONLY,  sizeof(double) * M * N, NULL, NULL);
-    input2 = clCreateBuffer(context,  CL_MEM_READ_ONLY,  sizeof(double) * N, NULL, NULL);
-    output = clCreateBuffer(context, CL_MEM_WRITE_ONLY, sizeof(double) * N, NULL, NULL);
+    input = clCreateBuffer(context,  CL_MEM_READ_ONLY,  sizeof(float) * count, NULL, NULL);
+    output = clCreateBuffer(context, CL_MEM_WRITE_ONLY, sizeof(float) * count, NULL, NULL);
     if (!input || !output)
     {
         printf("Error: Failed to allocate device memory!\n");
@@ -187,8 +183,7 @@ int dotmv(double * data, double * data2, int M, int N, double * results, int DAT
     
     // Write our data set into the input array in device memory
     //
-    err = clEnqueueWriteBuffer(commands, input, CL_TRUE, 0, sizeof(double) *  M * N, data, 0, NULL, NULL);
-    err = clEnqueueWriteBuffer(commands, input2, CL_TRUE, 0, sizeof(double) *  N, data2, 0, NULL, NULL);
+    err = clEnqueueWriteBuffer(commands, input, CL_TRUE, 0, sizeof(float) * count, data, 0, NULL, NULL);
     if (err != CL_SUCCESS)
     {
         printf("Error: Failed to write to source array!\n");
@@ -199,11 +194,8 @@ int dotmv(double * data, double * data2, int M, int N, double * results, int DAT
     //
     err = 0;
     err  = clSetKernelArg(kernel, 0, sizeof(cl_mem), &input);
-    err  = clSetKernelArg(kernel, 1, sizeof(cl_mem), &input2);
-    err |= clSetKernelArg(kernel, 2, sizeof(cl_mem), &output);
-    err |= clSetKernelArg(kernel, 3, sizeof(unsigned int), &count);
-    err |= clSetKernelArg(kernel, 4, sizeof(int), &M);
-    err |= clSetKernelArg(kernel, 5, sizeof(int), &N);
+    err |= clSetKernelArg(kernel, 1, sizeof(cl_mem), &output);
+    err |= clSetKernelArg(kernel, 2, sizeof(unsigned int), &count);
     if (err != CL_SUCCESS)
     {
         printf("Error: Failed to set kernel arguments! %d\n", err);
@@ -222,6 +214,8 @@ int dotmv(double * data, double * data2, int M, int N, double * results, int DAT
     
     
     
+   
+   
     
     // Execute the kernel over the entire range of our 1d input data set
     // using the maximum number of work group items for this device
@@ -237,13 +231,39 @@ int dotmv(double * data, double * data2, int M, int N, double * results, int DAT
     // Wait for the command commands to get serviced before reading back results
     //
     clFinish(commands);
-    err = clEnqueueReadBuffer( commands, output, CL_TRUE, 0, sizeof(double) * M, results, 0, NULL, NULL );
+    
+    double bench = (get_time() - start);
+      printf("Time = %f \n", bench*1000);
+
+    // Read back the results from the device to verify the output
+    //
+    err = clEnqueueReadBuffer( commands, output, CL_TRUE, 0, sizeof(float) * count, results, 0, NULL, NULL );
     if (err != CL_SUCCESS)
     {
         printf("Error: Failed to read output array! %d\n", err);
         exit(1);
     }
     
+    // Validate our results
+    //
+    /*
+    correct = 0;
+    for(i = 0; i < count; i++)
+    {
+        printf("vale %f, %f,  %f\n", results[i], data[i], exp(data[i]));
+        if(results[i] == exp(data[i]))
+            correct++;
+    }
+    
+    // Print a brief summary detailing the results
+    //
+     
+     printf("Computed '%d/%d' correct values!\n", correct, count);
+     */
+     printf("vale %f, %f,  %f\n", results[1], data[1], exp(data[1]));
+    
+    // Shutdown and cleanup
+    //
     clReleaseMemObject(input);
     clReleaseMemObject(output);
     clReleaseProgram(program);
@@ -253,4 +273,3 @@ int dotmv(double * data, double * data2, int M, int N, double * results, int DAT
     
     return 0;
 }
-

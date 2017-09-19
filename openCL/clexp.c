@@ -33,7 +33,7 @@ const char *KernelSource = "\n" \
 "{                                                                      \n" \
 "   int i = get_global_id(0);                                           \n" \
 "   if(i < count)                                                       \n" \
-"       output[i] = exp(input[i]);                                \n" \
+"       output[i] = native_exp(input[i]);                                \n" \
 "}                                                                      \n" \
 "\n";
 
@@ -76,6 +76,7 @@ int main(int argc, char** argv)
     unsigned int count = DATA_SIZE;
     for(i = 0; i < count; i++)
         data[i] = rand() / (float)RAND_MAX;
+    data[1]
     
     // Connect to a compute device
     
